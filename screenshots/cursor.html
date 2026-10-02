@@ -1,0 +1,39 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Pen Hover Cursor</title>
+<style>
+  html,body{margin:0;height:100%;background:#101418;color:#e8e8e8;font:28px/1.4 monospace;overflow:hidden}
+  #cv{position:fixed;inset:0}
+  #dot{position:fixed;width:56px;height:56px;border:5px solid #00e5ff;border-radius:50%;
+       transform:translate(-50%,-50%);display:none;pointer-events:none;box-shadow:0 0 24px #00e5ff88}
+  #info{position:fixed;top:24px;left:24px;font-size:40px;background:#000c;padding:12px 18px;border-radius:12px;z-index:9}
+  #hint{position:fixed;bottom:24px;left:24px;color:#888;font-size:30px;z-index:9}
+</style></head>
+<body>
+<canvas id="cv"></canvas>
+<div id="dot"></div><div id="info">waiting for pointer...</div>
+<div id="hint">hover = cursor only | press = ink (width = pressure)</div>
+<script>
+const cv=document.getElementById('cv'),ctx=cv.getContext('2d');
+const dot=document.getElementById('dot'),info=document.getElementById('info');
+function fit(){cv.width=innerWidth*devicePixelRatio;cv.height=innerHeight*devicePixelRatio;
+  ctx.scale(devicePixelRatio,devicePixelRatio);}
+fit();addEventListener('resize',fit);
+let last=null, drawing=false;
+addEventListener('pointerdown',e=>{drawing=true;last=[e.clientX,e.clientY,e.pressure];
+  info.textContent=`DOWN  X=${e.clientX} Y=${e.clientY} p=${e.pressure} ${e.pointerType}`;});
+addEventListener('pointermove',e=>{
+  dot.style.display='block';
+  dot.style.left=e.clientX+'px'; dot.style.top=e.clientY+'px';
+  info.textContent=`X=${e.clientX} Y=${e.clientY} p=${e.pressure} ${e.pointerType}`;
+  if(drawing&&e.pressure>0&&last){
+    ctx.strokeStyle='#00e5ff';ctx.lineCap='round';
+    ctx.lineWidth=2+e.pressure*22;
+    ctx.beginPath();ctx.moveTo(last[0],last[1]);ctx.lineTo(e.clientX,e.clientY);ctx.stroke();
+  }
+  if(e.pressure>0)last=[e.clientX,e.clientY,e.pressure];
+});
+addEventListener('pointerup',e=>{drawing=false;last=null;
+  info.textContent=`UP  X=${e.clientX} Y=${e.clientY}`;});
+</script>
+</body></html>

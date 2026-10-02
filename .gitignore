@@ -1,0 +1,7 @@
+# 编译产物
+root-touch-mapper_arm64
+rtm
+*.exe
+
+# 本地工具配置
+.claude/
