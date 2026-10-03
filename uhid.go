@@ -44,11 +44,8 @@ type uhidDev struct {
 	in2buf []byte
 }
 
-// OpenUHID 打开 /dev/uhid 并用给定 report descriptor 注册虚拟 HID 设备。
-// 需要 root (或 uhid 组权限)。
-// name/phys/bus 等身份字段是我们自己填的, 内核原样采用 —— 这就是伪装点:
-// 用 I2C bus + 内置面板风格的名字, Android 会把它当成内置设备。
-func OpenUHID(name, phys string, vendor, product uint32, reportDesc []byte) (*uhidDev, error) {
+// OpenUHIDBus 与 OpenUHID 相同, 但允许指定 bus 类型 (如 busUSB 模拟外接设备)。
+func OpenUHIDBus(name, phys string, vendor, product uint32, bus uint16, reportDesc []byte) (*uhidDev, error) {
 	f, err := os.OpenFile("/dev/uhid", os.O_RDWR, 0)
 	if err != nil {
 		return nil, fmt.Errorf("打开 /dev/uhid 失败 (需要 root / 内核需启用 CONFIG_UHID): %w", err)
@@ -64,7 +61,7 @@ func OpenUHID(name, phys string, vendor, product uint32, reportDesc []byte) (*uh
 	off += 64
 	binary.LittleEndian.PutUint16(buf[off:], uint16(len(reportDesc)))
 	off += 2
-	binary.LittleEndian.PutUint16(buf[off:], busI2C)
+	binary.LittleEndian.PutUint16(buf[off:], bus)
 	off += 2
 	binary.LittleEndian.PutUint32(buf[off:], vendor)
 	off += 4
@@ -142,4 +139,9 @@ func (d *uhidDev) SendReport(report []byte) error {
 
 func (d *uhidDev) Close() error {
 	return d.f.Close()
+}
+
+// OpenUHID 用 I2C bus 伪装成内置设备的默认注册入口。
+func OpenUHID(name, phys string, vendor, product uint32, reportDesc []byte) (*uhidDev, error) {
+	return OpenUHIDBus(name, phys, vendor, product, busI2C, reportDesc)
 }

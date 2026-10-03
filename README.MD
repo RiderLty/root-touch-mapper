@@ -56,3 +56,37 @@ q                               退出
 ```bash
 adb shell "printf 'sleep 2000\nh 0.5 0.5\nsleep 1000\nq\n' | /data/local/tmp/rtm pen"
 ```
+
+## 数位板 / 绝对光标实验结论
+
+新增 `tablet`（也可用 `puck`）模式，使用 Digitizer/Puck + 绝对 `ABS_X/Y` + `In Range`，并新增 `relmouse` 作为标准相对鼠标对照。
+
+在 Lenovo TB322FC / Android 15 实测：
+
+- `pen`：Android `Sources: KEYBOARD | TOUCHSCREEN | STYLUS`，悬停产生系统笔光标；绝对坐标有效。
+- `tablet`：关键是 Puck 集合必须同时声明 `Tip Switch` 和 `In Range`。最终描述符被 Android 合并为 `Sources: KEYBOARD | TOUCHSCREEN | MOUSE | STYLUS`、`Touch Input Mapper (mode - POINTER)`，并创建标准 `MousePointerControllers`；`ABS_X/Y` 仍是绝对坐标。仅声明 In Range 的早期版本会落入 JOYSTICK 或不产生光标。
+- Pointer 模式会保持数位板宽高比；当前设备竖屏 1904×3040，因此实现把 X 逻辑范围设为 0..20518、Y 设为 0..32767，避免 X 轴超出显示区域。换屏幕方向或设备时需要按显示宽高重新计算 X 范围。
+- `relmouse`：标准相对鼠标协议，用于验证 Android 鼠标光标路径；它需要相对 `REL_X/Y`，不具备数位板绝对映射语义。
+
+因此当前设备上已经验证两种“绝对值 + 系统光标”协议：`pen` 悬停和 `tablet` Puck。最终的指示器方案可以优先使用 `tablet`（光标工具语义为 MOUSE，坐标绝对），另一个 `touch` 进程发送 `d/m/u` 执行真正触摸。两台 UHID 设备可以并行存在；虽然名称和物理位置相同，Android 会按 HID 描述符拆成独立 EventHub 设备。
+
+新增 `composite` 实验：同一 UHID 描述符同时放入触摸屏 Report ID 1 和 Puck Report ID 2。Android 只创建 `TOUCHSCREEN` 的 DIRECT mapper，忽略 Puck 的 MOUSE/POINTER 集合，不能用一个复合设备同时获得独立系统光标。
+
+两个独立设备并行验证通过：触摸屏按住期间，Puck 仍可移动；触摸释放后，Puck 指针状态仍保持。推荐架构仍是分别运行 `touch` 和 `tablet`。
+
+网页验证：打开 <https://riderlty.github.io/touch-tester/>，`pen h` 应观察到悬停/指针事件，`touch d/m/u` 应观察到触摸事件。系统光标精灵不一定会被网页截图捕获，可同时使用 `getevent -lt` 和 `dumpsys input`。
+
+推荐的并行运行方式（两个 UHID 进程分别占一个终端）：
+
+```sh
+# 终端 1：绝对数位板光标
+adb shell /data/local/tmp/rtm tablet
+
+# 终端 2：真正触摸
+adb shell /data/local/tmp/rtm touch
+```
+
+在终端 1 输入 `move 0.8 0.2`，网页会收到 `pointermove`（鼠标工具）；
+在终端 2 输入 `tap 0.5 0.5`，网页会收到独立的触摸 `pointerdown/up`。
+`dumpsys input` 中前者应显示 `Sources: MOUSE` 和 `Touch Input Mapper
+(mode - POINTER)`，后者应显示 `TOUCHSCREEN`。

@@ -7,6 +7,11 @@
 //
 //	./root-touch-mapper touch   # 虚拟触屏 (默认)
 //	./root-touch-mapper pen     # 虚拟手写笔 (压感/侧键/悬停光标)
+//	./root-touch-mapper tablet  # 虚拟数位板光标 (Digitizer/Puck)
+//	./root-touch-mapper relmouse # 普通 HID 相对鼠标基线
+//	./root-touch-mapper drawtablet # Pen tool 的绝对数位板光标
+//	./root-touch-mapper composite # 同一 UHID 的触摸屏 + Puck 指针
+//	./root-touch-mapper absmouse  # KVM 风格绝对鼠标光标
 //
 // 代码分层:
 //   - uhid.go  /dev/uhid 传输层, 与设备类型无关
@@ -94,8 +99,20 @@ func main() {
 		runTouch()
 	case "pen":
 		runPen()
+	case "tablet", "puck":
+		runTablet(false)
+	case "tabletsq":
+		runTablet(true)
+	case "relmouse", "mouse":
+		runRelativeMouse()
+	case "drawtablet":
+		runDrawingTablet()
+	case "composite", "combo":
+		runComposite()
+	case "absmouse", "abs":
+		runAbsMouse()
 	default:
-		fmt.Printf("未知设备类型 %q\n用法: %s [touch|pen]\n", mode, os.Args[0])
+		fmt.Printf("未知设备类型 %q\n用法: %s [touch|pen|tablet|drawtablet|composite|relmouse]\n", mode, os.Args[0])
 		os.Exit(2)
 	}
 }
